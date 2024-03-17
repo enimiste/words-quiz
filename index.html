@@ -76,8 +76,10 @@
 
         this.validateAnswer = () => {
           console.log([this.currentWord, this.selectedAnswer]);
-          if(this.selectedAnswer){
-            if (this.wordsMapping.get(this.currentWord) === this.selectedAnswer) {
+          if (this.selectedAnswer) {
+            if (
+              this.wordsMapping.get(this.currentWord).has(this.selectedAnswer)
+            ) {
               this.valid_answers_count++;
               valid_result_lbl.innerHTML = this.valid_answers_count;
               //remove the element from the words array
@@ -94,7 +96,7 @@
             this.responsesOptionsRadioInputs.forEach((input) => {
               input.checked = false;
             });
-            this.selectedAnswer=undefined;
+            this.selectedAnswer = undefined;
             current_guess_lbl.innerHTML = "";
             this._showPlayBtn();
             this._hideSubmitAnswerBtn();
@@ -103,16 +105,17 @@
 
         this._showPlayBtn = () => {
           play_btn.classList.add("visible");
-            play_btn.classList.remove("invisible");
+          play_btn.classList.remove("invisible");
         };
 
         this._hidePlayBtn = () => {
           play_btn.classList.remove("visible");
-            play_btn.classList.add("invisible");
+          play_btn.classList.add("invisible");
         };
 
         this._refreshRemainingWordsUI = () => {
-            remaining_words_lbl.innerHTML = this.words.length + " of " + this.wordsMapping.size;
+          remaining_words_lbl.innerHTML =
+            this.words.length + " of " + this.wordsMapping.size;
         };
 
         this._buildOptionsElement = () => {
@@ -171,7 +174,7 @@
             result: [...result],
           };
         };
-        
+
         this._parseWordsMapping = (
           wordsMappingAsString,
           responsesOptionsArray
@@ -206,13 +209,14 @@
                       );
                       canProcess = false;
                     }
-                    if (!responsesOptions.has(response)) {
+                    const responses = new Set(response.split("|"));
+                    if (!responsesOptions.isSupersetOf(responses)) {
                       errors.push(
-                        "Words mapping : Invalid response in line " + line
+                        "Words mapping : Invalid responses in line " + line
                       );
                       canProcess = false;
                     }
-                    if (canProcess) result.set(word, response);
+                    if (canProcess) result.set(word, responses);
                   }
                 }
               });
@@ -391,7 +395,10 @@
                 0
               </span>
             </button>
-            <button type="button" class="btn btn-default position-relative border border-2">
+            <button
+              type="button"
+              class="btn btn-default position-relative border border-2"
+            >
               Remaining words
               <span
                 id="remaining-words-lbl"
