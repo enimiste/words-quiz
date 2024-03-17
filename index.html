@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Words Guesser</title>
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+      crossorigin="anonymous"
+    ></script>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
+      crossorigin="anonymous"
+    />
+    <script>
+      var GAME = undefined;
+      function Game(
+        config_area_ref,
+        config_area_mapping_txt_ref,
+        config_area_options_txt_ref,
+        play_area,
+        play_btn,
+        current_guess_lbl,
+        current_guess_answer_area,
+        valid_result_lbl,
+        invalid_result_lbl,
+        remaining_words_lbl,
+        submit_answer_btn,
+        errors_area_ref
+      ) {
+        this.words = [];
+        this.wordsMapping = new Map();
+        this.responsesOptions = [];
+        this.responsesOptionsRadioInputs = [];
+        this.valid_answers_count = 0;
+        this.invalid_answers_count = 0;
+        this.selectedAnswer = undefined;
+        this.currentWord = undefined;
+
+        this.tryStart = () => {
+          if (
+            config_area_options_txt_ref.value ||
+            config_area_options_txt_ref.value
+          )
+            this.restart();
+        };
+        this.restart = () => {
+          this._reset();
+          this.toggleConfigArea();
+          //TODO : parse config
+          const responseOptionsParsed = this._parseResponseOptions(
+            config_area_options_txt_ref.value
+          );
+          if (responseOptionsParsed.has_error) {
+            this._showErrors(responseOptionsParsed.errors);
+            return;
+          }
+          const wordsMappingParsed = this._parseWordsMapping(
+            config_area_mapping_txt_ref.value,
+            responseOptionsParsed.result
+          );
+          if (wordsMappingParsed.has_error) {
+            this._showErrors(wordsMappingParsed.errors);
+            return;
+          }
+          this.responsesOptions = responseOptionsParsed.result;
+          this.wordsMapping = wordsMappingParsed.result;
+          this.words = [...this.wordsMapping.keys()];
+
+          this._buildOptionsElement();
+          this._refreshRemainingWordsUI();
+        };
+
+        this.validateAnswer = () => {
+          console.log([this.currentWord, this.selectedAnswer]);
+          if(this.selectedAnswer){
+            if (this.wordsMapping.get(this.currentWord) === this.selectedAnswer) {
+              this.valid_answers_count++;
+              valid_result_lbl.innerHTML = this.valid_answers_count;
+              //remove the element from the words array
+              const index = this.words.indexOf(this.currentWord);
+              if (index > -1) {
+                // only splice array when item is found
+                this.words.splice(index, 1); // 2nd parameter means remove one item only
+              }
+              this._refreshRemainingWordsUI();
+            } else {
+              this.invalid_answers_count++;
+              invalid_result_lbl.innerHTML = this.invalid_answers_count;
+            }
+            this.responsesOptionsRadioInputs.forEach((input) => {
+              input.checked = false;
+            });
+            this.selectedAnswer=undefined;
+            current_guess_lbl.innerHTML = "";
+            this._showPlayBtn();
+            this._hideSubmitAnswerBtn();
+          }
+        };
+
+        this._showPlayBtn = () => {
+          play_btn.classList.add("visible");
+            play_btn.classList.remove("invisible");
+        };
+
+        this._hidePlayBtn = () => {
+          play_btn.classList.remove("visible");
+            play_btn.classList.add("invisible");
+        };
+
+        this._refreshRemainingWordsUI = () => {
+            remaining_words_lbl.innerHTML = this.words.length + " of " + this.wordsMapping.size;
+        };
+
+        this._buildOptionsElement = () => {
+          this.responsesOptionsRadioInputs = this.responsesOptions.map(
+            (v, idx) => {
+              const div = document.createElement("div");
+              div.classList.add("form-check");
+              const input = document.createElement("input");
+              input.classList.add("form-check-input");
+              input.setAttribute("type", "radio");
+              input.setAttribute("name", "current-guess-answer");
+              input.setAttribute("id", "current-guess-answer-" + idx);
+              input.style.cursor = "pointer";
+              input.value = v;
+              input.addEventListener("click", () => {
+                this._showSubmitAnswerBtn();
+                this.selectedAnswer = v;
+                console.log(this.selectedAnswer);
+              });
+              div.appendChild(input);
+              const label = document.createElement("label");
+              label.classList.add("form-check-label");
+              label.style.cursor = "pointer";
+              label.setAttribute("for", "current-guess-answer-" + idx);
+              label.innerText = v;
+              div.appendChild(label);
+              current_guess_answer_area.appendChild(div);
+              return input;
+            }
+          );
+        };
+
+        this._parseResponseOptions = (responsesOptions) => {
+          const errors = [];
+          const result = new Set();
+          if (responsesOptions) {
+            const lines = responsesOptions.trim().split("\n");
+            if (lines.length == 0) {
+              errors.push("Empty string given as Responses Options");
+            } else {
+              lines.forEach((line) => {
+                line = line.trim();
+                if (line.length == 0) {
+                  errors.push("Responses Options : Invalid line " + line);
+                } else {
+                  result.add(line);
+                }
+              });
+            }
+          } else {
+            errors.push("Oops ! Server error");
+          }
+          return {
+            has_error: errors.length > 0,
+            errors: errors,
+            result: [...result],
+          };
+        };
+        
+        this._parseWordsMapping = (
+          wordsMappingAsString,
+          responsesOptionsArray
+        ) => {
+          const errors = [];
+          const result = new Map();
+          const responsesOptions = new Set(responsesOptionsArray);
+          if (wordsMappingAsString) {
+            const lines = wordsMappingAsString.trim().split("\n");
+            if (lines.length == 0) {
+              errors.push("Empty string given as Words mapping");
+            } else {
+              lines.forEach((line) => {
+                line = line.trim();
+                if (!line.includes(":")) {
+                  errors.push("Words mapping : Invalid line " + line);
+                } else {
+                  const parts = line.split(":");
+                  if (parts.length != 2) {
+                    errors.push("Words mapping : Invalid line " + line);
+                  } else {
+                    [word, response] = [parts[0].trim(), parts[1].trim()];
+                    let canProcess = true;
+
+                    if (word.length == 0) {
+                      errors.push("Words mapping : Empty word in line " + line);
+                      canProcess = false;
+                    }
+                    if (response.length == 0) {
+                      errors.push(
+                        "Words mapping : Empty response in line " + line
+                      );
+                      canProcess = false;
+                    }
+                    if (!responsesOptions.has(response)) {
+                      errors.push(
+                        "Words mapping : Invalid response in line " + line
+                      );
+                      canProcess = false;
+                    }
+                    if (canProcess) result.set(word, response);
+                  }
+                }
+              });
+            }
+          } else {
+            errors.push("Oops ! Server error");
+          }
+          return {
+            has_error: errors.length > 0,
+            errors: errors,
+            result: result,
+          };
+        };
+
+        this.playNextGuesse = () => {
+          if (this.words.length == 0) return;
+          this.currentWord =
+            this.words[Math.floor(Math.random() * this.words.length)];
+          current_guess_lbl.innerHTML = this.currentWord;
+          this._showSubmitAnswerBtn();
+          this._hidePlayBtn();
+          console.log(this.currentWord);
+        };
+
+        this._showSubmitAnswerBtn = () => {
+          submit_answer_btn.classList.add("visible");
+          submit_answer_btn.classList.remove("invisible");
+        };
+        this._hideSubmitAnswerBtn = () => {
+          submit_answer_btn.classList.remove("visible");
+          submit_answer_btn.classList.add("invisible");
+        };
+        this._showErrors = (errorsArray) => {
+          console.log(errorsArray);
+          if (errorsArray.length > 0) {
+            errors_area_ref.innerHTML = "";
+            errorsArray.forEach((error) => {
+              const p = document.createElement("p");
+              p.innerHTML = error;
+              errors_area_ref.appendChild(p);
+            });
+            this._showErrorsArea();
+          }
+        };
+
+        this._showErrorsArea = () => {
+          errors_area_ref.parentElement.classList.add("show");
+        };
+
+        this._hideErrorsArea = () => {
+          errors_area_ref.parentElement.classList.remove("show");
+        };
+
+        this._reset = () => {
+          wordsMapping = [];
+          wordsMapping = new Map();
+          responsesOptions = [];
+          this.responsesOptionsRadioInputs = [];
+          this.valid_answers_count = 0;
+          this.invalid_answers_count = 0;
+          this.selectedAnswer = undefined;
+          this.currentWord = undefined;
+          this._hideErrorsArea();
+          this._hideSubmitAnswerBtn();
+          errors_area_ref.innerHTML = "";
+          current_guess_lbl.innerHTML = "";
+          current_guess_answer_area.innerHTML = "";
+          valid_result_lbl.innerHTML = 0;
+          invalid_result_lbl.innerHTML = 0;
+          remaining_words_lbl.innerHTML = "0 of 0";
+        };
+
+        this.toggleConfigArea = () => {
+          if (config_area_ref.style.display == "none") {
+            config_area_ref.style.display = "block";
+            play_area.classList.remove("col-12");
+            play_area.classList.add("col-7");
+          } else {
+            config_area_ref.style.display = "none";
+            play_area.classList.add("col-12");
+            play_area.classList.remove("col-7");
+          }
+        };
+      }
+
+      document.addEventListener("DOMContentLoaded", function (e) {
+        GAME = new Game(
+          document.getElementById("config-area"),
+          document.getElementById("words-mapping-txt"),
+          document.getElementById("response-options-txt"),
+          document.getElementById("play-area"),
+          document.getElementById("play-btn"),
+          document.getElementById("current-guess-lbl"),
+          document.getElementById("current-guess-answer-area"),
+          document.getElementById("valid-result-lbl"),
+          document.getElementById("invalid-result-lbl"),
+          document.getElementById("remaining-words-lbl"),
+          document.getElementById("submit-answer-btn"),
+          document.getElementById("errors-area")
+        );
+        document
+          .getElementById("reset-btn")
+          .addEventListener("click", function () {
+            GAME.restart();
+          });
+        document
+          .getElementById("play-btn")
+          .addEventListener("click", function () {
+            GAME.playNextGuesse();
+          });
+        document
+          .getElementById("toggle-config-area-btn")
+          .addEventListener("click", function () {
+            GAME.toggleConfigArea();
+          });
+        document
+          .getElementById("submit-answer-btn")
+          .addEventListener("click", function () {
+            GAME.validateAnswer();
+          });
+        //Dummy data
+        const words =
+          "un changement:Noms\nune manœuvre:Noms\nune embouchure:Noms\nune empreinte:Noms\nun pied:Noms\nrien:Pronom\nmieux:Adjectifs\npeureux:Adjectifs\npeut-être:Adverbes\npeu:Adverbes\nhélas:Interjection\nretenir:Verbes\nil permet:Verbes\nun adjectif:Noms\nun ciel:Noms\ndes restes:Noms\nun concept:Noms\nune sieste:Noms\nlequel:Pronom\ncertain:Adjectifs\nexact:Adjectifs\npresque:Adverbes\nterminer:Verbes\neffrayer:Verbes\nun parfum:Noms\nun lynx:Noms\nla jungle:Noms\nle tympan:Noms\nbrun:Adjectifs\nmalin:Adjectifs\nimportant:Adjectifs\nainsi:Adverbes\nimposer:Verbes\néteindre:Verbes";
+        const options =
+          "Noms\nPronom\nAdjectifs\nAdverbes\nInterjection\nVerbes";
+        document.getElementById("words-mapping-txt").value = words;
+        document.getElementById("response-options-txt").value = options;
+        GAME.tryStart();
+      });
+    </script>
+    <style></style>
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="display-1 mb-2">Words Guesser Quiz</h1>
+      <div class="row alert alert-danger alert-dismissible fade" role="alert">
+        <div id="errors-area">Errors here</div>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="alert"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="row border-3 border-top">
+        <div id="config-area" class="col-5 visible">
+          <h3 class="display-6">Options :</h3>
+          <p class="fs-6 fw-light">An option per line</p>
+          <textarea id="response-options-txt" class="container" rows="10">
+          </textarea>
+          <h3 class="display-6">Words with response :</h3>
+          <p class="fs-6 fw-light">
+            A mapping per line in the forme of WORD:RESPONSE
+          </p>
+          <textarea
+            id="words-mapping-txt"
+            class="container"
+            rows="20"
+          ></textarea>
+
+          <div class="row px-2">
+            <button id="reset-btn" type="button" class="btn btn-primary col-12">
+              Reset Game & Save Configuration
+            </button>
+          </div>
+        </div>
+        <div id="play-area" class="col-7 border-start border-3">
+          <h3 class="display-6">Playground</h3>
+          <div class="mb-2 mx-2 d-flex justify-content-between">
+            <button type="button" class="btn btn-secondary position-relative">
+              Invalid Answers
+              <span
+                id="invalid-result-lbl"
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+              >
+                0
+              </span>
+            </button>
+            <button type="button" class="btn btn-default position-relative border border-2">
+              Remaining words
+              <span
+                id="remaining-words-lbl"
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-secondary"
+              >
+                0/0
+              </span>
+            </button>
+            <button type="button" class="btn btn-secondary position-relative">
+              Valid Answers
+              <span
+                id="valid-result-lbl"
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success"
+              >
+                0
+              </span>
+            </button>
+          </div>
+          <div
+            class="row ps-3 pe-3 mx-2 border-top shadow-sm p-3 mb-5 bg-body rounde"
+          >
+            <div class="col-8 align-middle">
+              <p class="display-1" id="current-guess-lbl"></p>
+            </div>
+            <div
+              class="col-3 align-middle"
+              id="current-guess-answer-area"
+            ></div>
+            <div class="col-1 align-middle">
+              <button
+                id="submit-answer-btn"
+                class="btn btn-primary invisible"
+                type="button"
+              >
+                Ok
+              </button>
+            </div>
+          </div>
+          <div class="d-flex justify-content-between">
+            <button
+              id="toggle-config-area-btn"
+              type="button"
+              class="btn btn-danger"
+            >
+              Toggle Config Area
+            </button>
+            <button id="play-btn" type="button" class="btn btn-success">
+              Next Word !
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
