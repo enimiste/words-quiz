@@ -74,6 +74,12 @@
           this._refreshRemainingWordsUI();
         };
 
+        this._applyCssAndRemoveIt = (elementNod, cssClassName) => {
+          elementNod.classList.add(cssClassName);
+          setTimeout(() => {
+            elementNod.classList.remove(cssClassName);
+          }, 500);
+        };
         this.validateAnswer = () => {
           console.log([this.currentWord, this.selectedAnswer]);
           if (this.selectedAnswer) {
@@ -82,6 +88,7 @@
             ) {
               this.valid_answers_count++;
               valid_result_lbl.innerHTML = this.valid_answers_count;
+              this._applyCssAndRemoveIt(valid_result_lbl.parentElement, "scale-up-center");
               //remove the element from the words array
               const index = this.words.indexOf(this.currentWord);
               if (index > -1) {
@@ -92,6 +99,7 @@
             } else {
               this.invalid_answers_count++;
               invalid_result_lbl.innerHTML = this.invalid_answers_count;
+              this._applyCssAndRemoveIt(invalid_result_lbl.parentElement, "scale-up-center");
             }
             this.responsesOptionsRadioInputs.forEach((input) => {
               input.checked = false;
@@ -236,6 +244,7 @@
           this.currentWord =
             this.words[Math.floor(Math.random() * this.words.length)];
           current_guess_lbl.innerHTML = this.currentWord;
+          this._applyCssAndRemoveIt(current_guess_lbl.parentElement, 'scale-up-center');
           this._showSubmitAnswerBtn();
           this._hidePlayBtn();
           console.log(this.currentWord);
@@ -347,7 +356,35 @@
         GAME.tryStart();
       });
     </script>
-    <style></style>
+    <style>
+      .scale-up-center {
+        -webkit-animation: scale-up-center 0.4s
+          cubic-bezier(0.39, 0.575, 0.565, 1) both;
+        animation: scale-up-center 0.4s cubic-bezier(0.39, 0.575, 0.565, 1) both;
+      }
+
+      @-webkit-keyframes scale-up-center {
+        0% {
+          -webkit-transform: scale(0.5);
+          transform: scale(0.5);
+        }
+        100% {
+          -webkit-transform: scale(1);
+          transform: scale(1);
+        }
+      }
+      @keyframes scale-up-center {
+        0% {
+          -webkit-transform: scale(0.5);
+          transform: scale(0.5);
+        }
+        100% {
+          -webkit-transform: scale(1);
+          transform: scale(1);
+        }
+      }
+
+    </style>
   </head>
   <body>
     <div class="container">
@@ -362,7 +399,7 @@
         ></button>
       </div>
       <div class="row border-3 border-top">
-        <div id="config-area" class="col-5 visible">
+        <div id="config-area" class="col-4 visible border-end border-3">
           <h3 class="display-6">Options :</h3>
           <p class="fs-6 fw-light">An option per line</p>
           <textarea id="response-options-txt" class="container" rows="10">
@@ -383,7 +420,7 @@
             </button>
           </div>
         </div>
-        <div id="play-area" class="col-7 border-start border-3">
+        <div id="play-area" class="col-8">
           <h3 class="display-6">Playground</h3>
           <div class="mb-2 mx-2 d-flex justify-content-between">
             <button type="button" class="btn btn-secondary position-relative">
